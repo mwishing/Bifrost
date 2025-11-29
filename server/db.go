@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -427,24 +428,22 @@ func (db *db) getReplicateDoDbMap() map[string]map[string]uint8 {
 	return replicateDoDb
 }
 
-func (db *db) Start() (b bool) {
+func (db *db) Start() error {
 	db.statusCtx.ctx, db.statusCtx.cancelFun = context.WithCancel(context.Background())
 	db.Lock()
 	if db.ConnStatus != CLOSED && db.ConnStatus != STOPPED {
 		db.Unlock()
-		return false
+		return errors.New("not be close or stop")
 	}
 	db.Unlock()
-	b = false
 	if db.maxBinlogDumpFileName == db.binlogDumpFileName && db.binlogDumpPosition >= db.maxBinlogDumpPosition {
-		return
+		return nil
 	}
 	if len(db.tableMap) == 0 {
-		return
+		return errors.New("no table sync config")
 	}
 	switch db.ConnStatus {
 	case CLOSED:
-		db.ConnStatus = STARTING
 		// 这里加一个加一个方法里再去执行初始化input,是为防止初始化有空指针等异常导致，不释放锁
 		// 不放到 InitInputDriver 中去加锁，因为 GetCurrentPosition 中也会去获取Input，不存在的情况下，也会去初始化一次
 		func() {
@@ -452,19 +451,24 @@ func (db *db) Start() (b bool) {
 			defer db.Unlock()
 			db.InitInputDriver()
 		}()
+		if !db.inputDriverObj.IsSupported(inputDriver.SupportIncre) {
+			return fmt.Errorf("DbName: %s Input: %s Incr data is not supported", db.Name, db.InputType)
+		}
+		db.ConnStatus = STARTING
 		go db.inputDriverObj.Start(db.inputStatusChan)
 		go db.monitorDump()
 		break
 	case STOPPED:
 		db.ConnStatus = RUNNING
 		log.Println(db.Name+" monitor:", "running")
-		db.inputDriverObj.Start(db.inputStatusChan)
+		// 这里不需要判断 是否支持 增量，因为正常逻辑不会直接stop判断，最开始只会是close状态
+		go db.inputDriverObj.Start(db.inputStatusChan)
 		break
 	default:
-		return
+		return nil
 	}
 	go db.CronCalcMinPosition()
-	return true
+	return nil
 }
 
 /*
@@ -632,7 +636,7 @@ func (db *db) IgnoreTableToMap(IgnoreTable string) map[string]bool {
 	return m
 }
 
-func (db *db) AddTable(schemaName string, tableName string, IgnoreTable string, ChannelKey int, LastToServerID int) bool {
+func (db *db) AddTable(schemaName string, tableName string, IgnoreTable string, DoTable string, ChannelKey int, LastToServerID int) bool {
 	key := GetSchemaAndTableJoin(schemaName, tableName)
 	db.Lock()
 	defer db.Unlock()
@@ -644,18 +648,20 @@ func (db *db) AddTable(schemaName string, tableName string, IgnoreTable string, 
 			ToServerList:   make([]*ToServer, 0),
 			LastToServerID: LastToServerID,
 			likeTableList:  make([]*Table, 0),
+			DoTable:        DoTable,
+			doTableMap:     db.IgnoreTableToMap(DoTable),
 			IgnoreTable:    IgnoreTable,
 			ignoreTableMap: db.IgnoreTableToMap(IgnoreTable),
 		}
 		db.addLikeTable(db.tableMap[key], schemaName, tableName)
-		log.Println("AddTable", db.Name, schemaName, tableName, db.channelMap[ChannelKey].Name, " IgnoreTable:", IgnoreTable)
+		log.Println("AddTable", db.Name, schemaName, tableName, db.channelMap[ChannelKey].Name, " IgnoreTable:", IgnoreTable, "DoTable:", DoTable)
 		count.SetTable(db.Name, key)
 	}
 	return true
 }
 
 // 修改 模糊匹配的表规则 需要过滤哪些表不进行匹配
-func (db *db) UpdateTable(schemaName string, tableName string, IgnoreTable string) bool {
+func (db *db) UpdateTable(schemaName string, tableName string, IgnoreTable string, DoTable string) bool {
 	key := GetSchemaAndTableJoin(schemaName, tableName)
 	db.Lock()
 	defer db.Unlock()
@@ -663,9 +669,11 @@ func (db *db) UpdateTable(schemaName string, tableName string, IgnoreTable strin
 		log.Println("UpdateTable ", db.Name, schemaName, tableName, " not exsit ")
 		return false
 	}
+	db.tableMap[key].DoTable = DoTable
+	db.tableMap[key].doTableMap = db.IgnoreTableToMap(DoTable)
 	db.tableMap[key].IgnoreTable = IgnoreTable
 	db.tableMap[key].ignoreTableMap = db.IgnoreTableToMap(IgnoreTable)
-	log.Println("UpdateTable", db.Name, schemaName, tableName, "IgnoreTable:", IgnoreTable)
+	log.Println("UpdateTable", db.Name, schemaName, tableName, "IgnoreTable:", IgnoreTable, "DoTable:", DoTable)
 	return true
 }
 
@@ -851,10 +859,20 @@ func (db *db) GetChannel(channelID int) *Channel {
 */
 
 func (db *db) GetCurrentPosition() (*inputDriver.PluginPosition, error) {
+	inputDriverObj := db.GetInputDriverObj()
+	if inputDriverObj == nil {
+		return nil, nil
+	}
+	// 这里通过 db.GetInputDriverObj 内部去加锁,并返回一个 inputDriverObj 对象
+	// 再对input调用GetCurrentPosition方法,是防止input 内部再加锁的情况下,会被触发锁未被释放,进入死锁的可能
+	return inputDriverObj.GetCurrentPosition()
+}
+
+func (db *db) GetInputDriverObj() inputDriver.Driver {
 	db.Lock()
 	defer db.Unlock()
 	if db.inputDriverObj == nil {
 		db.InitInputDriver()
 	}
-	return db.inputDriverObj.GetCurrentPosition()
+	return db.inputDriverObj
 }

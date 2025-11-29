@@ -17,18 +17,21 @@ Your star is the biggest support for Bifrost!!!
 
 ##### TO
 
-| ToServer        | DDL | Notes                                         |
-|------------|-----|-----------------------------------------------|
-| Redis      | NO  |                                               |
-| MongoDB    | NO  |                                               |
-| MySQL      | YES |                                               |
-| ClickHouse | YES |                                               |
-| Memcache   | NO  |                                               |
-| RabbitMQ   | YES |                                               |
-| Kafka      | YES | support canal json,debezium json, string data |
-| ActiveMQ   | YES |                                               |
-| [Http](https://github.com/brokercap/Bifrost/blob/v1.8.x/plugin/http/example/http_server/http_server.go)| YES  |                                               |
-| [Hprose RPC](https://github.com/brokercap/Bifrost/blob/v1.8.x/hprose_server/tcp_server.go)| YES  |                                               |
+| ToServer                                                                                                | DDL | Notes                                           |
+|---------------------------------------------------------------------------------------------------------|-----|-------------------------------------------------|
+| Redis                                                                                                   | NO  |                                                 |
+| MongoDB                                                                                                 | NO  |                                                 |
+| MySQL                                                                                                   | YES |                                                 |
+| ClickHouse                                                                                              | YES |                                                 |
+| Memcache                                                                                                | NO  |                                                 |
+| RabbitMQ                                                                                                | YES |                                                 |
+| Kafka                                                                                                   | YES | support canal json,debezium json, string data   |
+| ActiveMQ                                                                                                | YES |                                                 |
+| [Http](https://github.com/brokercap/Bifrost/blob/v1.8.x/plugin/http/example/http_server/http_server.go) | YES  |                                                 |
+| [Hprose RPC](https://github.com/brokercap/Bifrost/blob/v1.8.x/hprose_server/tcp_server.go)              | YES  |                                                 |
+| [Hprose RPC](https://github.com/brokercap/Bifrost/blob/v1.8.x/hprose_server/tcp_server.go)              | YES  |                                                 |
+| StarRocks                                                                                               | YES | use mysql protocol                              |
+| Doris                                                                                                   | YES | use mysql protocol                              |
 
 
 ##### FROM
@@ -44,6 +47,7 @@ Your star is the biggest support for Bifrost!!!
 | kafka   | NO  | YES | debezium         | debezium for mysql data           |
 | Mongo   | NO  | YES | oplog            |                                   |
 | kafka   | NO  | YES | customer json    | customer json to bifrost struct   |
+| Mock    | NO  | YES | MySQL Binlog     | use for outut plugin develop      |
 
 ---
 
@@ -117,11 +121,11 @@ After compiling, the corresponding platform name folder will be created in the t
 ##### Binary
 
 ```
-wget https://github.com/brokercap/Bifrost/releases/download/v2.1.1-beta/bifrost_v2.1.1-beta_Linux-amd64-bin.tar.gz
+wget https://github.com/brokercap/Bifrost/releases/download/v2.3.12-beta/bifrost_v2.3.12-beta_Linux-amd64-bin.tar.gz
 
-tar -zxvf bifrost_v2.1.1-beta_Linux-amd64-bin.tar.gz
+tar -zxvf bifrost_v2.3.12-beta_Linux-amd64-bin.tar.gz
 
-cd bifrost_v2.1.1-beta_Linux-amd64-bin/bin && chmod a+x ./Bifrost*
+cd bifrost_v2.3.12-beta_Linux-amd64-bin/bin && chmod a+x ./Bifrost*
 
 ```
 

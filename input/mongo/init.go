@@ -19,9 +19,11 @@ package mongo
 import inputDriver "github.com/brokercap/Bifrost/input/driver"
 
 const (
-	VERSION         string = "v2.0.0"
-	BIFROST_VERSION string = "v2.0.4"
+	VERSION         string = "v2.4.0"
+	BIFROST_VERSION string = "v2.4.0"
 )
+
+const OutPutName = "mongo"
 
 func init() {
 	inputDriver.Register("mongo", NewInputPlugin, VERSION, BIFROST_VERSION)
